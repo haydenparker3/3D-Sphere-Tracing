@@ -8,7 +8,7 @@ Sphere :: Sphere(win &gmwin, int centerx, int centery, int centerz, int radius) 
 }
 
 double Sphere :: SignedDistToSphere(double ox, double oy, double oz){
-    return sqrt(pow(centerx - ox, 2) + pow(centery - oy, 2) + pow(centery - oz, 2)) - radius; //negative if origin is in circle
+    return sqrt(pow(centerx - ox, 2) + pow(centery - oy, 2) + pow(centerz - oz, 2)) - radius; //negative if origin is in circle
 }
 
 void Sphere :: RenderSphere(int offx, int offy){

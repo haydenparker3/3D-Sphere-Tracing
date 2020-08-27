@@ -282,7 +282,7 @@ void RenderTrace(win &gmwin){
                 
             }
             else{
-                SDL_SetRenderDrawColor(gmwin.renderer, clamp(-.5*minDistances[x][y]+255, 0, 255), 0, 0, 255);
+                SDL_SetRenderDrawColor(gmwin.renderer, clamp(-.5*minDistances[x][y]+255, 0, 200), 0, 0, 255);
                 gmwin.pos.x = x*resolution;
                 gmwin.pos.y = y*resolution;
                 gmwin.pos.h = resolution;
