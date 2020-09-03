@@ -1,15 +1,19 @@
+#pragma one
+#ifndef BOX_H
+#define BOX_H
 #include "common.h"
 #include "cmath"
 #include "string"
 #include "window.h"
+#include "Shape.h"
 
-class Box{
+class Box : public Shape{
     public:
-        int centerx, centery, centerz, width, height, length;
+        double width, height, length;
 
-        win &gmwin;
-        Box(win &gmwin, int centerx, int centery, int centerz, int width, int height, int length);
-        double SignedDistToBox(double ox, double oy, double oz);
-        void RenderBox(int offx, int offy);
+        Box(win &gmwin, double centerx, double centery, double centerz, double width, double height, double length, SDL_Color color);
+        double SignedDistToShape(double ox, double oy, double oz);
+        void RenderShape(int offx, int offy);
     private:
 };
+#endif

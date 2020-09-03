@@ -1,15 +1,19 @@
+#pragma one
+#ifndef SQPERE_H
+#define SQHERE_H
 #include "common.h"
 #include "cmath"
 #include "string"
 #include "window.h"
+#include "Shape.h"
 
-class Sphere{
+class Sphere : public Shape{
     public:
-        int centerx, centery, centerz, radius;
+        int radius;
 
-        win &gmwin;
-        Sphere(win &gmwin, int centerx, int centery, int centerz, int radius);
-        double SignedDistToSphere(double ox, double oy, double oz);
-        void RenderSphere(int offx, int offy);
+        Sphere(win &gmwin, double centerx, double centery, double centerz, int radius, SDL_Color color);
+        double SignedDistToShape(double ox, double oy, double oz);
+        void RenderShape(int offx, int offy);
     private:
 };
+#endif

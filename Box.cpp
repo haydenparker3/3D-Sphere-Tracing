@@ -3,15 +3,15 @@
 #include "string"
 #include "Box.h"
 
-Box :: Box(win &gmwin, int centerx, int centery, int centerz, int width, int height, int length) : gmwin(gmwin), centerx(centerx), centery(centery), centerz(centerz), width(width), height(height), length(length){
+Box :: Box(win &gmwin, double centerx, double centery, double centerz, double width, double height, double length, SDL_Color color) : Shape(gmwin, centerx, centery, centerz, color), width(width), height(height), length(length){
 
 }
 
-void Box :: RenderBox(int offx, int offy){
+void Box :: RenderShape(int offx, int offy){
     gmwin.DrawRectangle(true, centerx, centery, width, height, {0, 0, 0, 255}, offx, offy);
 }
 
-double Box :: SignedDistToBox(double ox, double oy, double oz){
+double Box :: SignedDistToShape(double ox, double oy, double oz){
     double x = abs(ox - centerx) - width/2;
     double y = abs(oy - centery) - height/2;
     double z = abs(oz - centerz) - length/2;
