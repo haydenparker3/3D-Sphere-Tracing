@@ -105,7 +105,7 @@ void Run(win &gmwin)
         // }
         if(w){
             if(m == 0){
-                shapes[m]->centerz -= step*elapsed_seconds.count();
+                shapes[m]->centery -= step*elapsed_seconds.count();
             }
             if(m == 1){
                 shapes[m]->centery -= step*elapsed_seconds.count();
@@ -304,9 +304,9 @@ void RenderTrace(win &gmwin){
     double z = oz + 1;
     int ix = 0;
     int iy = 0;
-    for(double x = ox-1; x <= ox+1-2.0/xrays; x+=2.0/xrays){
+    for(double x = ox-1; x <= ox+1; x+=2.0/xrays){
         iy = 0;
-        for(double y = oy-1; y <= oy+1-2.0/yrays; y+=2.0/yrays){
+        for(double y = oy-1; y <= oy+1; y+=2.0/yrays){
             double cx = x - ox;
             double cy = y - oy;
             double cz = z - oz;
