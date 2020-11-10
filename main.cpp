@@ -1,3 +1,4 @@
+#include "iostream"
 #include "common.h"
 #include "cmath"
 #include "string"
@@ -5,6 +6,7 @@
 #include "window.h"
 #include "Box.h"
 #include "Sphere.h"
+#include "Vector3D.h"
 #include "chrono"
 
 void Run(win &gmwin);
@@ -24,18 +26,17 @@ double oy = 0;
 double oz = -300;
 double pox, poy, poz;
 double minDist;
-double viewAngx = 0;
-double viewAngy = 0;
-double viewAngz = 0;
+Vector3 cameraVector = Vector3(0, 0, 1);
+Vector3 cameraUpVector = Vector3(0, 1, 0);
 double viewRange = M_PI/2;
-int resolution = 2;
+int resolution = 3;
 int xrays = 600/resolution;
 int yrays = 600/resolution;
 int step = 150;
 bool w, s, a, d, l, r;
 int m = 0;
 double k = 80; //smoothMin amplitude
-double lx, ly, lz; //used to get the angle the light comes from
+Vector3 lightVector = Vector3(0, 1, 0); //light vector
 double lax, lay, laz; //angle light comes from
 double ud = 1;
 
@@ -71,17 +72,15 @@ void Run(win &gmwin)
     auto end = chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds;
 
-    lx = 0;
-    ly = -1;
-    lz = 0;
-    double cx = lx;
-    double cy = ly;
-    double cz = lz;
-    lax = atan2(sqrt(cy*cy+cz*cz), cx); //tan^-1(y/x) = angle sqrt(cy*cy+cz*cz) = y cx = x minDist*sin(ax) = y
-    lay = atan2(sqrt(cz*cz+cx*cx), cy);
-    laz = atan2(sqrt(cx*cx+cy*cy), cz);
+    vector<double> angs = lightVector.getAngles();
+    lax = angs[0];
+    lay = angs[1];
+    laz = angs[2];
     cout << lax << "\t" << lay << "\t" << laz << endl;
 
+    Vector3 cross = cameraUpVector.cross(cameraVector);
+    cout << cross.i << "\t" << cross.j << "\t" << cross.k << endl;
+    
     while (gameLoop)
     {   
         start = chrono::system_clock::now();
@@ -105,10 +104,10 @@ void Run(win &gmwin)
         // }
         if(w){
             if(m == 0){
-                shapes[m]->centery -= step*elapsed_seconds.count();
+                shapes[m]->centery += step*elapsed_seconds.count();
             }
             if(m == 1){
-                shapes[m]->centery -= step*elapsed_seconds.count();
+                shapes[m]->centery += step*elapsed_seconds.count();
             }
             if(m == 2){
                 poz = oz;
@@ -123,10 +122,10 @@ void Run(win &gmwin)
         }
         if(s){
             if(m == 0){
-                shapes[m]->centery += step*elapsed_seconds.count();
+                shapes[m]->centery -= step*elapsed_seconds.count();
             }
             else if(m == 1){
-                shapes[m]->centery += step*elapsed_seconds.count();
+                shapes[m]->centery -= step*elapsed_seconds.count();
             }
             else if(m == 2){
                 poz = oz;
@@ -306,13 +305,14 @@ void RenderTrace(win &gmwin){
     int iy = 0;
     for(double x = ox-1; x <= ox+1; x+=2.0/xrays){
         iy = 0;
-        for(double y = oy-1; y <= oy+1; y+=2.0/yrays){
+        for(double y = oy+1; y >= oy-1; y-=2.0/yrays){
             double cx = x - ox;
             double cy = y - oy;
             double cz = z - oz;
             double ax = atan2(sqrt(cy*cy+cz*cz), cx);
             double ay = atan2(sqrt(cz*cz+cx*cx), cy);
             double az = atan2(sqrt(cx*cx+cy*cy), cz);
+            
             minDistances[ix][iy] = sphereTracing(ax, ay, az);
             iy++;
         }
@@ -351,6 +351,9 @@ vector<double> sphereTracing(double angx, double angy, double angz){
     double stepox = ox;
     double stepoy = oy;
     double stepoz = oz;
+    double pstepox = ox;
+    double pstepoy = oy;
+    double psteooz = oz;
     while(stepox >= -500 && stepox <= 500 && stepoy >= -500 && stepoy <= 500 && stepoz >= -500 && stepoz <= 500 && minDist.first > .1){
         stepox = stepox + minDist.first*cos(angx);
         stepoy = stepoy + minDist.first*cos(angy);
