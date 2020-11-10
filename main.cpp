@@ -78,7 +78,6 @@ void Run(win &gmwin)
     laz = angs[2];
     cout << lax << "\t" << lay << "\t" << laz << endl;
 
-
     Vector3 cross = cameraUpVector.cross(cameraVector);
     cout << cross.i << "\t" << cross.j << "\t" << cross.k << endl;
     
