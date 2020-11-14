@@ -1,6 +1,6 @@
 #pragma one
-#ifndef SQPERE_H
-#define SQHERE_H
+#ifndef SPHERE_H
+#define SPHERE_H
 #include "common.h"
 #include "cmath"
 #include "string"
