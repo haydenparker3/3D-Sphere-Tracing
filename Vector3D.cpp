@@ -7,6 +7,13 @@ Vector3 :: Vector3(double i, double j, double k, double x, double y, double z) :
 
 }
 
+void Vector3 :: normalize(){
+    double denom = sqrt(i*i + j*j + k*k);
+    i = i/denom;
+    j = j/denom;
+    k = k/denom;
+}
+
 double Vector3 :: dot(Vector3 &vec){
     return i*vec.i + j*vec.j + k*vec.k;
 }
@@ -17,5 +24,13 @@ Vector3 Vector3 :: cross(Vector3 &vec){
 
 vector<double> Vector3 :: getAngles(){
     return {acos(i/norm), acos(j/norm), acos(k/norm)};
+}
+
+Vector3 Vector3 :: operator *(double mult){
+    return Vector3(i*mult, j*mult, k*mult, x, y, z);
+}
+
+Vector3 Vector3 :: operator +(Vector3 &obj){
+    return Vector3(i+obj.i, j+obj.j, k+obj.k, x, y, z);
 }
 
