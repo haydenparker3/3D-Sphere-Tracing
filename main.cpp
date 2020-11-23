@@ -13,8 +13,8 @@ void Run(win &gmwin);
 pair<double, Shape*> calcMinDist(double x, double y, double z);
 void RenderTrace(win &gmwin);
 void RenderMandelTrace(win &gmwin);
-vector<double> sphereTracing(Vector3 *rayVector);
-vector<double> mandelSphereTracing(Vector3 *rayVector);
+vector<double> sphereTracing(Vector3 &rayVector);
+vector<double> mandelSphereTracing(Vector3 &rayVector);
 double smoothMin(double a, double b, double k);
 double pointInShadow(double x, double y, double z);
 double distMandelBulb(double x, double y, double z);
@@ -24,7 +24,7 @@ double clamp(double x, double min, double max);
 int mx, my, pmx, pmy;
 double ox = 0; //camerax
 double oy = 0; //cameray
-double oz = 301; //camerz
+double oz = 300; //camerz
 double pox, poy, poz; //previous cameraxyz
 double minDist;
 Vector3 cameraVector = Vector3(0, 0, -1, ox, oy, oz);
@@ -35,7 +35,7 @@ int resolution = 4;
 int xrays = 600/resolution;
 int yrays = 600/resolution;
 int step = 150; //shape movement step
-bool w, s, a, d, l, r;
+bool w, s, a, d, q, e, l, r, up, down;
 int m = 0; //shape your controling
 double k = 80; //smoothMin amplitude
 Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
@@ -77,9 +77,10 @@ void Run(win &gmwin)
     auto start = chrono::system_clock::now();
     auto end = chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds;
-    
+
     while (gameLoop)
     {   
+        cout << cameraVector.dot(cameraUpVector) << endl;
         start = chrono::system_clock::now();
 
         SDL_RenderPresent(gmwin.renderer);
@@ -89,9 +90,106 @@ void Run(win &gmwin)
         // pmy = my;
         // SDL_GetMouseState(&mx, &my);
 
-        cameraVector.i = cos(theta);
-        cameraVector.k = sin(theta);
-        
+        if(l){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            Vector3 camera_direction = cameraVector*5;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (0 / width) - xrays/width/2;
+            double normalized_j = ((yrays/2) / height) - yrays/height/2;
+
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraVector = rayVector;
+        }
+        if(r){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            Vector3 camera_direction = cameraVector*5;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (xrays / width) - xrays/width/2;
+            double normalized_j = ((yrays/2) / height) - yrays/height/2;
+
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraVector = rayVector;
+        }
+        if(up){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            Vector3 camera_direction = cameraVector*5;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = xrays/width/2 - ((xrays/2) / width);
+            double normalized_j = yrays/height/2 - (0 / height);
+
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraVector = rayVector;
+            cameraUpVector = camera_right.cross(cameraVector);
+        }
+        if(down){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            Vector3 camera_direction = cameraVector*5;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = xrays/width/2 - ((xrays/2) / width);
+            double normalized_j = yrays/height/2 - (yrays / height);
+
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraVector = rayVector;
+            cameraUpVector = camera_right.cross(cameraVector);
+        }
+        if(e){
+            Vector3 camera_right = cameraUpVector.cross(cameraVector);
+            Vector3 camera_direction = cameraUpVector*5;
+            Vector3 camera_up_direction = cameraVector;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (0 / width) - xrays/width/2;
+            double normalized_j = ((yrays/2) / height) - yrays/height/2;
+
+            double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraUpVector = rayVector;
+        }
+        if(q){
+            Vector3 camera_right = cameraUpVector.cross(cameraVector);
+            Vector3 camera_direction = cameraUpVector*5;
+            Vector3 camera_up_direction = cameraVector;
+
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (xrays / width) - xrays/width/2;
+            double normalized_j = ((yrays/2) / height) - yrays/height/2;
+
+            double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            rayVector.normalize();
+            cameraUpVector = rayVector;
+        }
         if(w){
             if(m == 0){
                 shapes[m]->centery += step*elapsed_seconds.count();
@@ -107,7 +205,6 @@ void Run(win &gmwin)
                 cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
                 cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
                 // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cout << "WOW" << endl;
                 //     cameraVector.x = pox;
                 //     cameraVector.y = poy;
                 //     cameraVector.z = poz;
@@ -129,7 +226,6 @@ void Run(win &gmwin)
                 cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
                 cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
                 // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cout << "WOW" << endl;
                 //     cameraVector.x = pox;
                 //     cameraVector.y = poy;
                 //     cameraVector.z = poz;
@@ -215,16 +311,28 @@ void Run(win &gmwin)
                         gameLoop = false;
                         break;
                     case SDLK_e:
-                        zoom += .1;
+                        e = true;
                         break;
                     case SDLK_q:
+                        q = true;
+                        break;
+                    case SDLK_r:
+                        zoom += .1;
+                        break;
+                    case SDLK_f:
                         zoom -= .1;
                         break;
                     case SDLK_RIGHT:
-                        theta += (M_PI/4)*elapsed_seconds.count();
+                        r = true;
                         break;
                     case SDLK_LEFT:
-                        theta -= (M_PI/4)*elapsed_seconds.count();
+                        l = true;
+                        break;
+                    case SDLK_UP:
+                        up = true;
+                        break;
+                    case SDLK_DOWN:
+                        down = true;
                         break;
                     case SDLK_w:
                         w = true;
@@ -261,7 +369,7 @@ void Run(win &gmwin)
                             cameraVector.k = -1;
                             cameraVector.x = 0;
                             cameraVector.y = 0;
-                            cameraVector.z = -300;
+                            cameraVector.z = 300;
                             m = 0;
                         }
                         break;
@@ -279,6 +387,11 @@ void Run(win &gmwin)
                     case SDLK_RIGHT:
                         r = false;
                         break;
+                    case SDLK_UP:
+                        up = false;
+                        break;
+                    case SDLK_DOWN:
+                        down = false;
                     case SDLK_w:
                         w = false;
                         break;
@@ -290,6 +403,12 @@ void Run(win &gmwin)
                         break;
                     case SDLK_d:
                         d = false;
+                        break;
+                    case SDLK_e:
+                        e = false;
+                        break;
+                    case SDLK_q:
+                        q = false;
                         break;
                     default:
                         break;
@@ -325,22 +444,22 @@ pair<double, Shape*> calcMinDist(double x, double y, double z){
 }
 
 void RenderTrace(win &gmwin){
-    Vector3 camera_right = cameraUpVector.cross(cameraVector);
+    Vector3 camera_right = cameraVector.cross(cameraUpVector);
     Vector3 camera_direction = cameraVector*zoom;
     pminDistances = minDistances;
     for(int ix = 0; ix < xrays; ix++){
         for(int iy = 0; iy < yrays; iy++){
             double width = xrays;  // pixels across
             double height = yrays;  // pixels high
-            double normalized_i = xrays/width/2 - (ix / width);
-            double normalized_j = yrays/height/2 - (iy / height);
+            double normalized_i = (ix / width) - xrays/width/2;
+            double normalized_j = (iy / height) - yrays/height/2;
             
             double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
             double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
             double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
             Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            
-            minDistances[ix][iy] = sphereTracing(&rayVector);
+
+            minDistances[ix][yrays-iy-1] = sphereTracing(rayVector);
         }
     }
     
@@ -380,21 +499,21 @@ void RenderTrace(win &gmwin){
 }
 
 void RenderMandelTrace(win &gmwin){
-    Vector3 camera_right = cameraUpVector.cross(cameraVector);
+    Vector3 camera_right = cameraVector.cross(cameraUpVector);
     Vector3 camera_direction = cameraVector*zoom;
     for(int ix = 0; ix < xrays; ix++){
         for(int iy = 0; iy < yrays; iy++){
             double width = xrays;  // pixels across
             double height = yrays;  // pixels high
-            double normalized_i = xrays/width/2 - (ix / width);
-            double normalized_j = yrays/height/2 - (iy / height);
+            double normalized_i = (ix / width) - xrays/width/2;
+            double normalized_j = (iy / height) - yrays/height/2;
 
             double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
             double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
             double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
             Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
             
-            minDistances[ix][iy] = mandelSphereTracing(&rayVector);
+            minDistances[ix][yrays-iy-1] = mandelSphereTracing(rayVector);
         }
     }
     
@@ -411,9 +530,9 @@ void RenderMandelTrace(win &gmwin){
     }
 }
 
-vector<double> sphereTracing(Vector3 *rayVector){
+vector<double> sphereTracing(Vector3 &rayVector){
     pair<double, Shape*> minDist = calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z);
-    vector<double> angs = rayVector->getAngles();
+    vector<double> angs = rayVector.getAngles();
     double stepox = cameraVector.x;
     double stepoy = cameraVector.y;
     double stepoz = cameraVector.z;
@@ -436,13 +555,11 @@ vector<double> sphereTracing(Vector3 *rayVector){
     else{
         return {10000, 1, 0, 0, 0, iters}; //distance shadow r g b iters
     }
-    rayVector = nullptr;
-    delete rayVector;
 }
 
-vector<double> mandelSphereTracing(Vector3 *rayVector){
+vector<double> mandelSphereTracing(Vector3 &rayVector){
     double minDist = distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z);
-    vector<double> angs = rayVector->getAngles();
+    vector<double> angs = rayVector.getAngles();
     double stepox = cameraVector.x;
     double stepoy = cameraVector.y;
     double stepoz = cameraVector.z;
