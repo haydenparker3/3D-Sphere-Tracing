@@ -29,16 +29,16 @@ double pox, poy, poz; //previous cameraxyz
 double minDist;
 Vector3 cameraVector = Vector3(0, 0, -1, ox, oy, oz);
 Vector3 cameraUpVector = Vector3(0, 1, 0, ox, oy, oz);
+Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
 double zoom = .6;
 double viewRange = M_PI/2;
-int resolution = 4;
+int resolution = 3;
 int xrays = 600/resolution;
 int yrays = 600/resolution;
 int step = 150; //shape movement step
 bool w, s, a, d, q, e, l, r, up, down;
 int m = 0; //shape your controling
 double k = 80; //smoothMin amplitude
-Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
 double lax, lay, laz; //angle light comes from
 double ud = 1; //point in shadow initial step size
 double theta = 3*M_PI/2; 
@@ -80,7 +80,6 @@ void Run(win &gmwin)
 
     while (gameLoop)
     {   
-        cout << cameraVector.dot(cameraUpVector) << endl;
         start = chrono::system_clock::now();
 
         SDL_RenderPresent(gmwin.renderer);
@@ -197,18 +196,31 @@ void Run(win &gmwin)
             if(m == 1){
                 shapes[m]->centery += step*elapsed_seconds.count();
             }
-            if(m == 2 || m == 3){
+            else if(m == 2){
                 pox = cameraVector.x;
                 poy = cameraVector.y;
                 poz = cameraVector.z;
                 cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
                 cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
                 cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
-                // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cameraVector.x = pox;
-                //     cameraVector.y = poy;
-                //     cameraVector.z = poz;
-                // }
+                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
+            }
+            else if(m == 3){
+                pox = cameraVector.x;
+                poy = cameraVector.y;
+                poz = cameraVector.z;
+                cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
+                cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
+                cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
+                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
             }
         }
         if(s){
@@ -218,18 +230,31 @@ void Run(win &gmwin)
             else if(m == 1){
                 shapes[m]->centery -= step*elapsed_seconds.count();
             }
-            else if(m == 2 || m == 3){
+            else if(m == 2){
                 pox = cameraVector.x;
                 poy = cameraVector.y;
                 poz = cameraVector.z;
                 cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
                 cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
                 cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
-                // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cameraVector.x = pox;
-                //     cameraVector.y = poy;
-                //     cameraVector.z = poz;
-                // }
+                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
+            }
+            else if(m == 3){
+                pox = cameraVector.x;
+                poy = cameraVector.y;
+                poz = cameraVector.z;
+                cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
+                cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
+                cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
+                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
             }
         }
         if(a){
@@ -239,7 +264,7 @@ void Run(win &gmwin)
             else if(m == 1){
                 shapes[m]->centerx -= step*elapsed_seconds.count();
             }
-            else if(m == 2 || m == 3){
+            else if(m == 2){
                 Vector3 camera_right = cameraVector.cross(cameraUpVector);
                 pox = cameraVector.x;
                 poy = cameraVector.y;
@@ -247,11 +272,25 @@ void Run(win &gmwin)
                 cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
                 cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
                 cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
-                // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cameraVector.x = pox;
-                //     cameraVector.y = poy;
-                //     cameraVector.z = poz;
-                // }
+                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
+            }
+            else if(m == 3){
+                Vector3 camera_right = cameraVector.cross(cameraUpVector);
+                pox = cameraVector.x;
+                poy = cameraVector.y;
+                poz = cameraVector.z;
+                cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
+                cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
+                cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
+                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
             }
         }
         if(d){
@@ -261,7 +300,7 @@ void Run(win &gmwin)
             else if(m == 1){
                 shapes[m]->centerx += step*elapsed_seconds.count();
             }
-            else if(m == 2 || m == 3){
+            else if(m == 2){
                 Vector3 camera_right = cameraVector.cross(cameraUpVector);
                 pox = cameraVector.x;
                 poy = cameraVector.y;
@@ -269,11 +308,25 @@ void Run(win &gmwin)
                 cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
                 cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
                 cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
-                // if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                //     cameraVector.x = pox;
-                //     cameraVector.y = poy;
-                //     cameraVector.z = poz;
-                // }
+                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
+            }
+            else if(m == 3){
+                Vector3 camera_right = cameraVector.cross(cameraUpVector);
+                pox = cameraVector.x;
+                poy = cameraVector.y;
+                poz = cameraVector.z;
+                cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
+                cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
+                cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
+                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                    cameraVector.x = pox;
+                    cameraVector.y = poy;
+                    cameraVector.z = poz;
+                }
             }
         }   
 
