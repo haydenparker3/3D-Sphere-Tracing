@@ -8,13 +8,18 @@
 #include "Sphere.h"
 #include "Vector3D.h"
 #include "chrono"
+#include "./threading/mingw.thread.h"
 
 void Run(win &gmwin);
 pair<double, Shape*> calcMinDist(double x, double y, double z);
 void RenderTrace(win &gmwin);
+void RenderTraceWithMultiThreading(win &gmwin);
 void RenderMandelTrace(win &gmwin);
+void RenderMandelTraceWithMultiThreading(win &gmwin);
 vector<double> sphereTracing(Vector3 &rayVector);
+void sphereTracingThread(Vector3 camera_direction, Vector3 camera_right, int ix);
 vector<double> mandelSphereTracing(Vector3 &rayVector);
+void mandelSphereTracingThread(Vector3 camera_direction, Vector3 camera_right, int i);
 double smoothMin(double a, double b, double k);
 double pointInShadow(double x, double y, double z);
 double distMandelBulb(double x, double y, double z);
@@ -32,7 +37,7 @@ Vector3 cameraUpVector = Vector3(0, 1, 0, ox, oy, oz);
 Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
 double zoom = .6;
 double viewRange = M_PI/2;
-int resolution = 3;
+int resolution = 2;
 int xrays = 600/resolution;
 int yrays = 600/resolution;
 int step = 150; //shape movement step
@@ -48,6 +53,7 @@ double mult = 13; //multiplier in rendering
 vector<Shape*> shapes;
 vector<vector<vector<double>>> minDistances;
 vector<vector<vector<double>>> pminDistances; //previous distances
+vector<thread*> threads;
 
 int main()
 {
@@ -65,7 +71,7 @@ void Run(win &gmwin)
     srand(time(NULL));
     cout << std::boolalpha;
 
-    vector<vector<double>> temp(yrays, {10000, 1}); //distance and in shadow
+    vector<vector<double>> temp(yrays, {10000, 1, 0, 0, 0, 0}); //distance and in shadow
     for(int i = 0; i < xrays; i++){
         minDistances.push_back(temp);
     }
@@ -331,10 +337,10 @@ void Run(win &gmwin)
         }   
 
         if(m!=3)
-            RenderTrace(gmwin);
+            RenderTraceWithMultiThreading(gmwin);
         else{
             power+=.05;
-            RenderMandelTrace(gmwin);
+            RenderMandelTraceWithMultiThreading(gmwin);
         }
 
         SDL_Event event;
@@ -470,6 +476,7 @@ void Run(win &gmwin)
         }
         end = chrono::system_clock::now();
         elapsed_seconds = end-start;
+        // cout << elapsed_seconds.count() << endl;
     }
 }
 
@@ -494,6 +501,59 @@ pair<double, Shape*> calcMinDist(double x, double y, double z){
         nearestShape = shapes[0];
 
     return {smoothMin(dstToBox, dstToSphere, k), nearestShape};
+}
+
+void RenderTraceWithMultiThreading(win &gmwin){
+    Vector3 camera_right = cameraVector.cross(cameraUpVector);
+    Vector3 camera_direction = cameraVector*zoom;
+    pminDistances = minDistances;
+
+    bool odd = xrays%2;
+    for(int ix = 0; ix < xrays/4; ix++){
+        // if(odd && )
+        threads.push_back(new thread(sphereTracingThread, camera_direction, camera_right, ix));
+    }
+    for(int i = 0; i < threads.size(); i++){
+        threads[i]->join();
+    }
+    
+    for(int x = 0; x < minDistances.size(); x++){
+        for(int y = 0; y < minDistances[x].size(); y++){
+            if(minDistances[x][y][0] == 10000 && pminDistances[x][y][0] != 10000){
+                SDL_SetRenderDrawColor(gmwin.renderer, 0, 0, 0, 255);
+                gmwin.pos.x = x*resolution;
+                gmwin.pos.y = y*resolution;
+                gmwin.pos.h = resolution;
+                gmwin.pos.w = resolution;
+                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            }
+            else{
+                if(minDistances[x][y][1] == 1){ // 1 means in shadow
+                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2]/2, minDistances[x][y][3]/2, minDistances[x][y][4]/2, 255);
+                }
+                else if(minDistances[x][y][1] == 0){ //0 means in light so no change
+                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2], minDistances[x][y][3], minDistances[x][y][4], 255);
+                }
+                gmwin.pos.x = x*resolution;
+                gmwin.pos.y = y*resolution;
+                gmwin.pos.h = resolution;
+                gmwin.pos.w = resolution;
+                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            }
+            //Alternate Render
+            // SDL_SetRenderDrawColor(gmwin.renderer, (-1/(minDistances[x][y][5]/mult+1)+1)*255, (-1/(minDistances[x][y][5]/mult+1)+1)*255, (-1/(minDistances[x][y][5]/mult+1)+1)*255, 255);
+            
+            // gmwin.pos.x = x*resolution;
+            // gmwin.pos.y = y*resolution;
+            // gmwin.pos.h = resolution;
+            // gmwin.pos.w = resolution;
+            // SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+        }
+    }
+    for(int i = 0; i < threads.size(); i++){
+        threads[i] = nullptr;
+    }
+    threads.clear();
 }
 
 void RenderTrace(win &gmwin){
@@ -551,6 +611,37 @@ void RenderTrace(win &gmwin){
     }
 }
 
+void RenderMandelTraceWithMultiThreading(win &gmwin){
+    Vector3 camera_right = cameraVector.cross(cameraUpVector);
+    Vector3 camera_direction = cameraVector*zoom;
+    pminDistances = minDistances;
+
+    bool odd = xrays%2;
+    for(int ix = 0; ix < xrays/4; ix++){
+        // if(odd && )
+        threads.push_back(new thread(mandelSphereTracingThread, camera_direction, camera_right, ix));
+    }
+    for(int i = 0; i < threads.size(); i++){
+        threads[i]->join();
+    }
+    
+    for(int x = 0; x < minDistances.size(); x++){
+        for(int y = 0; y < minDistances[x].size(); y++){
+            SDL_SetRenderDrawColor(gmwin.renderer, (-1/(minDistances[x][y][1]/mult+1)+1)*255, 0, (-1/(minDistances[x][y][1]/mult+1)+1)*255*.60, 255);
+
+            gmwin.pos.x = x*resolution;
+            gmwin.pos.y = y*resolution;
+            gmwin.pos.h = resolution;
+            gmwin.pos.w = resolution;
+            SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+        }
+    }
+    for(int i = 0; i < threads.size(); i++){
+        threads[i] = nullptr;
+    }
+    threads.clear();
+}
+
 void RenderMandelTrace(win &gmwin){
     Vector3 camera_right = cameraVector.cross(cameraUpVector);
     Vector3 camera_direction = cameraVector*zoom;
@@ -583,6 +674,47 @@ void RenderMandelTrace(win &gmwin){
     }
 }
 
+void sphereTracingThread(Vector3 camera_direction, Vector3 camera_right, int i){
+    for(int ix = i*4; ix < i*4+4; ix++){
+        for(int iy = 0; iy < yrays; iy++){
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (ix / width) - xrays/width/2;
+            double normalized_j = (iy / height) - yrays/height/2;
+            
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            
+            pair<double, Shape*> minDist = calcMinDist(rayVector.x, rayVector.y, rayVector.z);
+            vector<double> angs = rayVector.getAngles();
+            double stepox = rayVector.x;
+            double stepoy = rayVector.y;
+            double stepoz = rayVector.z;
+            double pstepox = rayVector.x;
+            double pstepoy = rayVector.y;
+            double psteooz = rayVector.z;
+            double iters = 0;
+
+            while(minDist.first > .1 && minDist.first < 2000){
+                iters++;
+                stepox = stepox + minDist.first*cos(angs[0]);
+                stepoy = stepoy + minDist.first*cos(angs[1]);
+                stepoz = stepoz + minDist.first*cos(angs[2]);
+                minDist = calcMinDist(stepox, stepoy, stepoz);
+            }
+
+            if(minDist.first <= .1){
+                minDistances[ix][yrays-iy-1] = {sqrt(pow(stepox-rayVector.x, 2) + pow(stepoy-rayVector.y, 2) + pow(stepoz-rayVector.z, 2)), pointInShadow(stepox, stepoy, stepoz), static_cast<double>(minDist.second->color.r), static_cast<double>(minDist.second->color.g), static_cast<double>(minDist.second->color.b), iters};
+            }
+            else{
+                minDistances[ix][yrays-iy-1] = {10000, 1, 0, 0, 0, iters}; //distance shadow r g b iters
+            }
+        }
+    }
+}
+
 vector<double> sphereTracing(Vector3 &rayVector){
     pair<double, Shape*> minDist = calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z);
     vector<double> angs = rayVector.getAngles();
@@ -607,6 +739,47 @@ vector<double> sphereTracing(Vector3 &rayVector){
     }
     else{
         return {10000, 1, 0, 0, 0, iters}; //distance shadow r g b iters
+    }
+}
+
+void mandelSphereTracingThread(Vector3 camera_direction, Vector3 camera_right, int i){
+    for(int ix = i*4; ix < i*4+4; ix++){
+        for(int iy = 0; iy < yrays; iy++){
+            double width = xrays;  // pixels across
+            double height = yrays;  // pixels high
+            double normalized_i = (ix / width) - xrays/width/2;
+            double normalized_j = (iy / height) - yrays/height/2;
+
+            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+            
+            double minDist = distMandelBulb(rayVector.x, rayVector.y, rayVector.z);
+            vector<double> angs = rayVector.getAngles();
+            double stepox = rayVector.x;
+            double stepoy = rayVector.y;
+            double stepoz = rayVector.z;
+            double pstepox = rayVector.x;
+            double pstepoy = rayVector.y;
+            double psteooz = rayVector.z;
+            double iters = 0;
+
+            while(minDist > .01 && minDist < 2000){
+                iters++;
+                stepox = stepox + minDist*cos(angs[0]);
+                stepoy = stepoy + minDist*cos(angs[1]);
+                stepoz = stepoz + minDist*cos(angs[2]);
+                minDist = distMandelBulb(stepox, stepoy, stepoz);
+            }
+
+            if(minDist <= .01){
+                minDistances[ix][yrays-iy-1] = {sqrt(pow(stepox-cameraVector.x, 2) + pow(stepoy-cameraVector.y, 2) + pow(stepoz-cameraVector.z, 2)), iters};
+            }
+            else{
+                minDistances[ix][yrays-iy-1] = {10000, iters};
+            }
+        }
     }
 }
 

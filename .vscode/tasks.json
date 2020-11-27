@@ -12,8 +12,10 @@
                 "args": [
                     "-g",
                     "-std=c++11",
+                    "-pthread",
                     "main.cpp",
                     "-o", "Builds/Linux_Build/engine",
+                    "-Ofast",
                     "-lGL",
                     "-lGLEW",
                     "-lGLU",
