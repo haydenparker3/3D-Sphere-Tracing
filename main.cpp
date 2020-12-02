@@ -25,8 +25,10 @@ double pointInShadow(double x, double y, double z);
 double distMandelBulb(double x, double y, double z);
 double mix(double x, double y, double a);
 double clamp(double x, double min, double max);
+void keyCases(std::chrono::duration<double> elapsed_seconds);
 
 int mx, my, pmx, pmy;
+int changemx, changemy;
 double ox = 0; //camerax
 double oy = 0; //cameray
 double oz = 300; //camerz
@@ -37,18 +39,20 @@ Vector3 cameraUpVector = Vector3(0, 1, 0, ox, oy, oz);
 Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
 double zoom = .6;
 double viewRange = M_PI/2;
-int resolution = 2;
-int xrays = 600/resolution;
-int yrays = 600/resolution;
-int step = 150; //shape movement step
-bool w, s, a, d, q, e, l, r, up, down;
+int resolution = 4;
+int screenWidth = 600;
+int screenHeight = 600;
+int xrays = screenWidth/resolution;
+int yrays = screenHeight/resolution;
+int turnStep = 7;
+int step = 200; //shape movement step
+bool w, s, a, d, q, e, l, r, up, down, p;
 int m = 0; //shape your controling
 double k = 80; //smoothMin amplitude
-double lax, lay, laz; //angle light comes from
 double ud = 1; //point in shadow initial step size
-double theta = 3*M_PI/2; 
 double power = 2; //used in mandelbulb
 double mult = 13; //multiplier in rendering
+int threshhold = 7;
 
 vector<Shape*> shapes;
 vector<vector<vector<double>>> minDistances;
@@ -57,7 +61,7 @@ vector<thread*> threads;
 
 int main()
 {
-    win gmwin = win(600, 600);
+    win gmwin = win(screenWidth, screenHeight);
 
     Run(gmwin);
 
@@ -84,265 +88,36 @@ void Run(win &gmwin)
     auto end = chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds;
 
+    SDL_ShowCursor(SDL_DISABLE);
+    SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
     while (gameLoop)
     {   
-        start = chrono::system_clock::now();
+        if(!p){
+            pmx = mx;
+            pmy = my;
+            SDL_GetMouseState(&mx, &my);
+            changemx = abs(pmx-mx);
+            changemy = abs(pmy-my);
 
-        SDL_RenderPresent(gmwin.renderer);
-        gmwin.ClearWindow();
+            SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
 
-        // pmx = mx;
-        // pmy = my;
-        // SDL_GetMouseState(&mx, &my);
+            start = chrono::system_clock::now();
 
-        if(l){
-            Vector3 camera_right = cameraVector.cross(cameraUpVector);
-            Vector3 camera_direction = cameraVector*5;
+            SDL_RenderPresent(gmwin.renderer);
+            gmwin.ClearWindow();
 
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = (0 / width) - xrays/width/2;
-            double normalized_j = ((yrays/2) / height) - yrays/height/2;
+            keyCases(elapsed_seconds);
 
-            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraVector = rayVector;
+            if(m!=3)
+                RenderTraceWithMultiThreading(gmwin);
+            else{
+                power+=.01;
+                RenderMandelTraceWithMultiThreading(gmwin);
+            }
+
+            end = chrono::system_clock::now();
+            elapsed_seconds = end-start;
         }
-        if(r){
-            Vector3 camera_right = cameraVector.cross(cameraUpVector);
-            Vector3 camera_direction = cameraVector*5;
-
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = (xrays / width) - xrays/width/2;
-            double normalized_j = ((yrays/2) / height) - yrays/height/2;
-
-            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraVector = rayVector;
-        }
-        if(up){
-            Vector3 camera_right = cameraVector.cross(cameraUpVector);
-            Vector3 camera_direction = cameraVector*5;
-
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = xrays/width/2 - ((xrays/2) / width);
-            double normalized_j = yrays/height/2 - (0 / height);
-
-            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraVector = rayVector;
-            cameraUpVector = camera_right.cross(cameraVector);
-        }
-        if(down){
-            Vector3 camera_right = cameraVector.cross(cameraUpVector);
-            Vector3 camera_direction = cameraVector*5;
-
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = xrays/width/2 - ((xrays/2) / width);
-            double normalized_j = yrays/height/2 - (yrays / height);
-
-            double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraVector = rayVector;
-            cameraUpVector = camera_right.cross(cameraVector);
-        }
-        if(e){
-            Vector3 camera_right = cameraUpVector.cross(cameraVector);
-            Vector3 camera_direction = cameraUpVector*5;
-            Vector3 camera_up_direction = cameraVector;
-
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = (0 / width) - xrays/width/2;
-            double normalized_j = ((yrays/2) / height) - yrays/height/2;
-
-            double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraUpVector = rayVector;
-        }
-        if(q){
-            Vector3 camera_right = cameraUpVector.cross(cameraVector);
-            Vector3 camera_direction = cameraUpVector*5;
-            Vector3 camera_up_direction = cameraVector;
-
-            double width = xrays;  // pixels across
-            double height = yrays;  // pixels high
-            double normalized_i = (xrays / width) - xrays/width/2;
-            double normalized_j = ((yrays/2) / height) - yrays/height/2;
-
-            double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
-            double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
-            double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
-            Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-            rayVector.normalize();
-            cameraUpVector = rayVector;
-        }
-        if(w){
-            if(m == 0){
-                shapes[m]->centery += step*elapsed_seconds.count();
-            }
-            if(m == 1){
-                shapes[m]->centery += step*elapsed_seconds.count();
-            }
-            else if(m == 2){
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
-                cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
-                cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
-                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-            else if(m == 3){
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
-                cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
-                cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
-                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-        }
-        if(s){
-            if(m == 0){
-                shapes[m]->centery -= step*elapsed_seconds.count();
-            }
-            else if(m == 1){
-                shapes[m]->centery -= step*elapsed_seconds.count();
-            }
-            else if(m == 2){
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
-                cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
-                cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
-                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-            else if(m == 3){
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
-                cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
-                cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
-                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-        }
-        if(a){
-            if(m == 0){
-                shapes[m]->centerx -= step*elapsed_seconds.count();
-            }
-            else if(m == 1){
-                shapes[m]->centerx -= step*elapsed_seconds.count();
-            }
-            else if(m == 2){
-                Vector3 camera_right = cameraVector.cross(cameraUpVector);
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
-                cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
-                cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
-                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-            else if(m == 3){
-                Vector3 camera_right = cameraVector.cross(cameraUpVector);
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
-                cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
-                cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
-                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-        }
-        if(d){
-            if(m == 0){
-                shapes[m]->centerx += step*elapsed_seconds.count();
-            }
-            else if(m == 1){
-                shapes[m]->centerx += step*elapsed_seconds.count();
-            }
-            else if(m == 2){
-                Vector3 camera_right = cameraVector.cross(cameraUpVector);
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
-                cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
-                cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
-                if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-            else if(m == 3){
-                Vector3 camera_right = cameraVector.cross(cameraUpVector);
-                pox = cameraVector.x;
-                poy = cameraVector.y;
-                poz = cameraVector.z;
-                cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
-                cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
-                cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
-                if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
-                    cameraVector.x = pox;
-                    cameraVector.y = poy;
-                    cameraVector.z = poz;
-                }
-            }
-        }   
-
-        if(m!=3)
-            RenderTraceWithMultiThreading(gmwin);
-        else{
-            power+=.05;
-            RenderMandelTraceWithMultiThreading(gmwin);
-        }
-
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -368,6 +143,13 @@ void Run(win &gmwin)
                 switch (event.key.keysym.sym){
                     case SDLK_ESCAPE:
                         gameLoop = false;
+                        break;
+                    case SDLK_p:
+                        p = !p;
+                        if(p)
+                            SDL_ShowCursor(SDL_ENABLE);
+                        else
+                            SDL_ShowCursor(SDL_DISABLE);
                         break;
                     case SDLK_e:
                         e = true;
@@ -413,22 +195,14 @@ void Run(win &gmwin)
                         else if(m == 2){
                             step = 1;
                             power = 2;
-                            cameraVector.i = 0;
-                            cameraVector.j = 0;
-                            cameraVector.k = -1;
-                            cameraVector.x = 0;
-                            cameraVector.y = 0;
-                            cameraVector.z = 2.5;
+                            cameraVector = Vector3(0, 0, -1, 0, 0, 2.5);
+                            cameraUpVector = Vector3(0, 1, 0, 0, 0, 2.5);
                             m = 3;
                         }
                         else if(m == 3){
                             step = 150;
-                            cameraVector.i = 0;
-                            cameraVector.j = 0;
-                            cameraVector.k = -1;
-                            cameraVector.x = 0;
-                            cameraVector.y = 0;
-                            cameraVector.z = 300;
+                            cameraVector = Vector3(0, 0, -1, 0, 0, 300);
+                            cameraUpVector = Vector3(0, 1, 0, 0, 0, 300);
                             m = 0;
                         }
                         break;
@@ -474,9 +248,6 @@ void Run(win &gmwin)
                 }
             }
         }
-        end = chrono::system_clock::now();
-        elapsed_seconds = end-start;
-        // cout << elapsed_seconds.count() << endl;
     }
 }
 
@@ -508,9 +279,7 @@ void RenderTraceWithMultiThreading(win &gmwin){
     Vector3 camera_direction = cameraVector*zoom;
     pminDistances = minDistances;
 
-    bool odd = xrays%2;
     for(int ix = 0; ix < xrays/4; ix++){
-        // if(odd && )
         threads.push_back(new thread(sphereTracingThread, camera_direction, camera_right, ix));
     }
     for(int i = 0; i < threads.size(); i++){
@@ -519,35 +288,38 @@ void RenderTraceWithMultiThreading(win &gmwin){
     
     for(int x = 0; x < minDistances.size(); x++){
         for(int y = 0; y < minDistances[x].size(); y++){
-            if(minDistances[x][y][0] == 10000 && pminDistances[x][y][0] != 10000){
-                SDL_SetRenderDrawColor(gmwin.renderer, 0, 0, 0, 255);
-                gmwin.pos.x = x*resolution;
-                gmwin.pos.y = y*resolution;
-                gmwin.pos.h = resolution;
-                gmwin.pos.w = resolution;
-                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
-            }
-            else{
-                if(minDistances[x][y][1] == 1){ // 1 means in shadow
-                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2]/2, minDistances[x][y][3]/2, minDistances[x][y][4]/2, 255);
-                }
-                else if(minDistances[x][y][1] == 0){ //0 means in light so no change
-                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2], minDistances[x][y][3], minDistances[x][y][4], 255);
-                }
-                gmwin.pos.x = x*resolution;
-                gmwin.pos.y = y*resolution;
-                gmwin.pos.h = resolution;
-                gmwin.pos.w = resolution;
-                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
-            }
+            // if(minDistances[x][y][0] == 10000 && pminDistances[x][y][0] != 10000){
+            //     SDL_SetRenderDrawColor(gmwin.renderer, 0, 0, 0, 255);
+            //     gmwin.pos.x = x*resolution;
+            //     gmwin.pos.y = y*resolution;
+            //     gmwin.pos.h = resolution;
+            //     gmwin.pos.w = resolution;
+            //     SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            // }
+            // else{
+            //     if(minDistances[x][y][1] == 1){ // 1 means in shadow
+            //         SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2]/2, minDistances[x][y][3]/2, minDistances[x][y][4]/2, 255);
+            //     }
+            //     else if(minDistances[x][y][1] == 0){ //0 means in light so no change
+            //         SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2], minDistances[x][y][3], minDistances[x][y][4], 255);
+            //     }
+            //     gmwin.pos.x = x*resolution;
+            //     gmwin.pos.y = y*resolution;
+            //     gmwin.pos.h = resolution;
+            //     gmwin.pos.w = resolution;
+            //     SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            // }
             //Alternate Render
-            // SDL_SetRenderDrawColor(gmwin.renderer, (-1/(minDistances[x][y][5]/mult+1)+1)*255, (-1/(minDistances[x][y][5]/mult+1)+1)*255, (-1/(minDistances[x][y][5]/mult+1)+1)*255, 255);
-            
-            // gmwin.pos.x = x*resolution;
-            // gmwin.pos.y = y*resolution;
-            // gmwin.pos.h = resolution;
-            // gmwin.pos.w = resolution;
-            // SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            double mu = -1*1/(minDistances[x][y][5]/mult+1+-1*threshhold/mult)+1;
+            if(minDistances[x][y][5] < threshhold)
+                mu = 0;
+            SDL_SetRenderDrawColor(gmwin.renderer, mu*255, 0, mu*255*.60, 255);
+
+            gmwin.pos.x = x*resolution;
+            gmwin.pos.y = y*resolution;
+            gmwin.pos.h = resolution;
+            gmwin.pos.w = resolution;
+            SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
         }
     }
     for(int i = 0; i < threads.size(); i++){
@@ -627,7 +399,10 @@ void RenderMandelTraceWithMultiThreading(win &gmwin){
     
     for(int x = 0; x < minDistances.size(); x++){
         for(int y = 0; y < minDistances[x].size(); y++){
-            SDL_SetRenderDrawColor(gmwin.renderer, (-1/(minDistances[x][y][1]/mult+1)+1)*255, 0, (-1/(minDistances[x][y][1]/mult+1)+1)*255*.60, 255);
+            double mu = -1/(minDistances[x][y][1]/mult+1+-1*threshhold/mult)+1;
+            if(minDistances[x][y][1] < threshhold)
+                mu = 0;
+            SDL_SetRenderDrawColor(gmwin.renderer, mu*255, 0, mu*255*.60, 255);
 
             gmwin.pos.x = x*resolution;
             gmwin.pos.y = y*resolution;
@@ -881,4 +656,280 @@ double clamp(double x, double min, double max){
         x = max;
     
     return x;
+}
+
+void keyCases(std::chrono::duration<double> elapsed_seconds){
+    if(changemx != 0){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep*.2;
+
+        double width = screenWidth;  // pixels across
+        double height = screenHeight;  // pixels high
+        double normalized_i = (mx / width) - .5;
+        double normalized_j = .5 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+    }
+    if(changemy != 0){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep*.2;
+
+        double width = screenWidth;  // pixels across
+        double height = screenHeight;  // pixels high
+        double normalized_i = .5 - .5;
+        double normalized_j = 1-(my/height) - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+        cameraUpVector = camera_right.cross(cameraVector);
+    }
+    if(l){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = 0 - .5;
+        double normalized_j = .5 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+    }
+    if(r){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = 1 - .5;
+        double normalized_j = .5 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+    }
+    if(up){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = .5 - .5;
+        double normalized_j = 1 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+        cameraUpVector = camera_right.cross(cameraVector);
+    }
+    if(down){
+        Vector3 camera_right = cameraVector.cross(cameraUpVector);
+        Vector3 camera_direction = cameraVector*turnStep;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = .5 - .5;
+        double normalized_j = 0 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraVector = rayVector;
+        cameraUpVector = camera_right.cross(cameraVector);
+    }
+    if(e){
+        Vector3 camera_right = cameraUpVector.cross(cameraVector);
+        Vector3 camera_direction = cameraUpVector*5;
+        Vector3 camera_up_direction = cameraVector;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = 0 - .5;
+        double normalized_j = .5 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraUpVector = rayVector;
+    }
+    if(q){
+        Vector3 camera_right = cameraUpVector.cross(cameraVector);
+        Vector3 camera_direction = cameraUpVector*5;
+        Vector3 camera_up_direction = cameraVector;
+
+        double width = xrays;  // pixels across
+        double height = yrays;  // pixels high
+        double normalized_i = 1 - .5;
+        double normalized_j = .5 - .5;
+
+        double imagepointx = (camera_right * normalized_i).i + (camera_up_direction * normalized_j).i + camera_direction.x + camera_direction.i;
+        double imagepointy = (camera_right * normalized_i).j + (camera_up_direction * normalized_j).j + camera_direction.y + camera_direction.j;
+        double imagepointz = (camera_right * normalized_i).k + (camera_up_direction * normalized_j).k + camera_direction.z + camera_direction.k;
+        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
+        rayVector.normalize();
+        cameraUpVector = rayVector;
+    }
+    if(w){
+        if(m == 0){
+            shapes[m]->centery += step*elapsed_seconds.count();
+        }
+        if(m == 1){
+            shapes[m]->centery += step*elapsed_seconds.count();
+        }
+        else if(m == 2){
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
+            cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
+            cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
+            if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+        else if(m == 3){
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x += step*elapsed_seconds.count()*cameraVector.i;
+            cameraVector.y += step*elapsed_seconds.count()*cameraVector.j;
+            cameraVector.z += step*elapsed_seconds.count()*cameraVector.k;
+            if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+    }
+    if(s){
+        if(m == 0){
+            shapes[m]->centery -= step*elapsed_seconds.count();
+        }
+        else if(m == 1){
+            shapes[m]->centery -= step*elapsed_seconds.count();
+        }
+        else if(m == 2){
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
+            cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
+            cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
+            if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+        else if(m == 3){
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x -= step*elapsed_seconds.count()*cameraVector.i;
+            cameraVector.y -= step*elapsed_seconds.count()*cameraVector.j;
+            cameraVector.z -= step*elapsed_seconds.count()*cameraVector.k;
+            if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+    }
+    if(a){
+        if(m == 0){
+            shapes[m]->centerx -= step*elapsed_seconds.count();
+        }
+        else if(m == 1){
+            shapes[m]->centerx -= step*elapsed_seconds.count();
+        }
+        else if(m == 2){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
+            cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
+            cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
+            if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+        else if(m == 3){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x -= step*elapsed_seconds.count()*camera_right.i;
+            cameraVector.y -= step*elapsed_seconds.count()*camera_right.j;
+            cameraVector.z -= step*elapsed_seconds.count()*camera_right.k;
+            if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+    }
+    if(d){
+        if(m == 0){
+            shapes[m]->centerx += step*elapsed_seconds.count();
+        }
+        else if(m == 1){
+            shapes[m]->centerx += step*elapsed_seconds.count();
+        }
+        else if(m == 2){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
+            cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
+            cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
+            if(calcMinDist(cameraVector.x, cameraVector.y, cameraVector.z).first < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+        else if(m == 3){
+            Vector3 camera_right = cameraVector.cross(cameraUpVector);
+            pox = cameraVector.x;
+            poy = cameraVector.y;
+            poz = cameraVector.z;
+            cameraVector.x += step*elapsed_seconds.count()*camera_right.i;
+            cameraVector.y += step*elapsed_seconds.count()*camera_right.j;
+            cameraVector.z += step*elapsed_seconds.count()*camera_right.k;
+            if(distMandelBulb(cameraVector.x, cameraVector.y, cameraVector.z) < .01){
+                cameraVector.x = pox;
+                cameraVector.y = poy;
+                cameraVector.z = poz;
+            }
+        }
+    }
 }
