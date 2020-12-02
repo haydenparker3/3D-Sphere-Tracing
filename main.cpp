@@ -691,7 +691,7 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
         rayVector.normalize();
         cameraVector = rayVector;
         cameraUpVector = camera_right.cross(cameraVector);
-    } 
+    }
     if(l){
         Vector3 camera_right = cameraVector.cross(cameraUpVector);
         Vector3 camera_direction = cameraVector*turnStep;
