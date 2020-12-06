@@ -67,13 +67,15 @@ bool win :: Init()
     }
 
     //Create Window Instance
+    uint32_t flags = 0;
+    
     window = SDL_CreateWindow(
         "Game Engine",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         screenWidth,
         screenHeight,   
-        SDL_WINDOW_OPENGL);
+        flags);
 
     //Check that the window was succesfully created
     if (window == NULL)

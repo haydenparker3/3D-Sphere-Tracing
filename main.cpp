@@ -6,6 +6,7 @@
 #include "window.h"
 #include "Box.h"
 #include "Sphere.h"
+#include "Torus.h"
 #include "Vector3D.h"
 #include "chrono"
 #include "./threading/mingw.thread.h"
@@ -39,14 +40,15 @@ Vector3 cameraUpVector = Vector3(0, 1, 0, ox, oy, oz);
 Vector3 lightVector = Vector3(0, 1, 0, 0, 0, 0); //light vector
 double zoom = .6;
 double viewRange = M_PI/2;
-int resolution = 4;
+int resolution = 3;
 int screenWidth = 600;
 int screenHeight = 600;
+bool fullscreen = true;
 int xrays = screenWidth/resolution;
 int yrays = screenHeight/resolution;
-int turnStep = 7;
+int turnStep = 6;
 int step = 200; //shape movement step
-bool w, s, a, d, q, e, l, r, up, down, p;
+bool w, s, a, d, q, e, l, r, up, down;
 int m = 0; //shape your controling
 double k = 80; //smoothMin amplitude
 double ud = 1; //point in shadow initial step size
@@ -81,43 +83,43 @@ void Run(win &gmwin)
     }
     pminDistances = minDistances;
 
-    shapes.push_back(new Sphere(gmwin, 0, 0, 0, 75, {255, 0, 0, 255}));
+    shapes.push_back(new Sphere(gmwin, 100, 0, 0, 75, {255, 0, 0, 255}));
     shapes.push_back(new Box(gmwin, -100, 0, 0, 100, 100, 100, {0, 255, 0, 255}));
+    shapes.push_back(new Torus(gmwin, 0, 0, 0, 100, 40, {0, 0, 255, 255}));
 
     auto start = chrono::system_clock::now();
     auto end = chrono::system_clock::now();
     std::chrono::duration<double> elapsed_seconds;
 
-    SDL_ShowCursor(SDL_DISABLE);
-    SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
+    // SDL_ShowCursor(SDL_DISABLE);
+    // SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
     while (gameLoop)
     {   
-        if(!p){
-            pmx = mx;
-            pmy = my;
-            SDL_GetMouseState(&mx, &my);
-            changemx = abs(pmx-mx);
-            changemy = abs(pmy-my);
+        // pmx = mx;
+        // pmy = my;
+        // SDL_GetMouseState(&mx, &my);
+        // changemx = abs(pmx-mx);
+        // changemy = abs(pmy-my);
 
-            SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
+        // SDL_WarpMouseInWindow(gmwin.window, screenWidth/2, screenHeight/2);
 
-            start = chrono::system_clock::now();
+        start = chrono::system_clock::now();
 
-            SDL_RenderPresent(gmwin.renderer);
-            gmwin.ClearWindow();
+        SDL_RenderPresent(gmwin.renderer);
+        gmwin.ClearWindow();
 
-            keyCases(elapsed_seconds);
+        keyCases(elapsed_seconds);
 
-            if(m!=3)
-                RenderTraceWithMultiThreading(gmwin);
-            else{
-                power+=.01;
-                RenderMandelTraceWithMultiThreading(gmwin);
-            }
-
-            end = chrono::system_clock::now();
-            elapsed_seconds = end-start;
+        if(m!=3)
+            RenderTraceWithMultiThreading(gmwin);
+        else{
+            power+=.01;
+            RenderMandelTraceWithMultiThreading(gmwin);
         }
+
+        end = chrono::system_clock::now();
+        elapsed_seconds = end-start;
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -144,12 +146,9 @@ void Run(win &gmwin)
                     case SDLK_ESCAPE:
                         gameLoop = false;
                         break;
-                    case SDLK_p:
-                        p = !p;
-                        if(p)
-                            SDL_ShowCursor(SDL_ENABLE);
-                        else
-                            SDL_ShowCursor(SDL_DISABLE);
+                    case SDLK_F11:
+                        fullscreen = SDL_GetWindowFlags(gmwin.window) & SDL_WINDOW_FULLSCREEN_DESKTOP;
+                        SDL_SetWindowFullscreen(gmwin.window, fullscreen ? 0 : SDL_WINDOW_FULLSCREEN_DESKTOP);
                         break;
                     case SDLK_e:
                         e = true;
@@ -263,15 +262,25 @@ pair<double, Shape*> calcMinDist(double x, double y, double z){
     // }
 
     // return minDist;
-    double dstToBox = shapes[1]->SignedDistToShape(x, y, z);
-    double dstToSphere = shapes[0]->SignedDistToShape(x, y, z);
-    Shape* nearestShape;
-    if(dstToBox < dstToSphere)
-        nearestShape = shapes[1];
-    else
-        nearestShape = shapes[0];
-
-    return {smoothMin(dstToBox, dstToSphere, k), nearestShape};
+    // double dstToBox = shapes[0]->SignedDistToShape(x, y, z);
+    // double dstToTorus = shapes[1]->SignedDistToShape(x, y, z);
+    // double dstToSphere = shapes[0]->SignedDistToShape(x, y, z);
+    Shape* nearestShape = shapes[0];
+    for(int i = 1; i < shapes.size(); i++){
+        if(shapes[i]->SignedDistToShape(x, y, z) < nearestShape->SignedDistToShape(x, y, z))
+            nearestShape = shapes[i];
+    }
+    double distance = shapes[0]->SignedDistToShape(x, y, z);
+    for(int i = 1; i < shapes.size(); i++){
+        distance = smoothMin(distance, shapes[i]->SignedDistToShape(x, y, z), k);
+    }
+    // if(dstToBox < dstToTorus)
+    //     nearestShape = shapes[0];
+    // else
+    //     nearestShape = shapes[1];
+    return {distance, nearestShape};
+    // return {smoothMin(dstToBox, dstToTorus, k), nearestShape};
+    // return {dstToTorus, shapes[0]};
 }
 
 void RenderTraceWithMultiThreading(win &gmwin){
@@ -288,38 +297,38 @@ void RenderTraceWithMultiThreading(win &gmwin){
     
     for(int x = 0; x < minDistances.size(); x++){
         for(int y = 0; y < minDistances[x].size(); y++){
-            // if(minDistances[x][y][0] == 10000 && pminDistances[x][y][0] != 10000){
-            //     SDL_SetRenderDrawColor(gmwin.renderer, 0, 0, 0, 255);
-            //     gmwin.pos.x = x*resolution;
-            //     gmwin.pos.y = y*resolution;
-            //     gmwin.pos.h = resolution;
-            //     gmwin.pos.w = resolution;
-            //     SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
-            // }
-            // else{
-            //     if(minDistances[x][y][1] == 1){ // 1 means in shadow
-            //         SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2]/2, minDistances[x][y][3]/2, minDistances[x][y][4]/2, 255);
-            //     }
-            //     else if(minDistances[x][y][1] == 0){ //0 means in light so no change
-            //         SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2], minDistances[x][y][3], minDistances[x][y][4], 255);
-            //     }
-            //     gmwin.pos.x = x*resolution;
-            //     gmwin.pos.y = y*resolution;
-            //     gmwin.pos.h = resolution;
-            //     gmwin.pos.w = resolution;
-            //     SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
-            // }
+            if(minDistances[x][y][0] == 10000 && pminDistances[x][y][0] != 10000){
+                SDL_SetRenderDrawColor(gmwin.renderer, 0, 0, 0, 255);
+                gmwin.pos.x = x*resolution;
+                gmwin.pos.y = y*resolution;
+                gmwin.pos.h = resolution;
+                gmwin.pos.w = resolution;
+                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            }
+            else{
+                if(minDistances[x][y][1] == 1){ // 1 means in shadow
+                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2]/2, minDistances[x][y][3]/2, minDistances[x][y][4]/2, 255);
+                }
+                else if(minDistances[x][y][1] == 0){ //0 means in light so no change
+                    SDL_SetRenderDrawColor(gmwin.renderer, minDistances[x][y][2], minDistances[x][y][3], minDistances[x][y][4], 255);
+                }
+                gmwin.pos.x = x*resolution;
+                gmwin.pos.y = y*resolution;
+                gmwin.pos.h = resolution;
+                gmwin.pos.w = resolution;
+                SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            }
             //Alternate Render
-            double mu = -1*1/(minDistances[x][y][5]/mult+1+-1*threshhold/mult)+1;
-            if(minDistances[x][y][5] < threshhold)
-                mu = 0;
-            SDL_SetRenderDrawColor(gmwin.renderer, mu*255, 0, mu*255*.60, 255);
+            // double mu = -1*1/(minDistances[x][y][5]/mult+1+-1*threshhold/mult)+1;
+            // if(minDistances[x][y][5] < threshhold)
+            //     mu = 0;
+            // SDL_SetRenderDrawColor(gmwin.renderer, mu*255, 0, mu*255*.60, 255);
 
-            gmwin.pos.x = x*resolution;
-            gmwin.pos.y = y*resolution;
-            gmwin.pos.h = resolution;
-            gmwin.pos.w = resolution;
-            SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
+            // gmwin.pos.x = x*resolution;
+            // gmwin.pos.y = y*resolution;
+            // gmwin.pos.h = resolution;
+            // gmwin.pos.w = resolution;
+            // SDL_RenderFillRect(gmwin.renderer, &gmwin.pos);
         }
     }
     for(int i = 0; i < threads.size(); i++){
@@ -388,9 +397,7 @@ void RenderMandelTraceWithMultiThreading(win &gmwin){
     Vector3 camera_direction = cameraVector*zoom;
     pminDistances = minDistances;
 
-    bool odd = xrays%2;
     for(int ix = 0; ix < xrays/4; ix++){
-        // if(odd && )
         threads.push_back(new thread(mandelSphereTracingThread, camera_direction, camera_right, ix));
     }
     for(int i = 0; i < threads.size(); i++){
@@ -584,11 +591,6 @@ vector<double> mandelSphereTracing(Vector3 &rayVector){
     }
 }
 
-double smoothMin(double a, double b, double k){
-    double h = clamp(.5 + .5 *(b-a)/k, 0.0, 1.0);
-    return mix(b, a, h) - k*h*(1.0-h);
-}
-
 double pointInShadow(double x, double y, double z){
     double stepox = x;
     double stepoy = y;
@@ -645,6 +647,13 @@ double distMandelBulb(double x, double y, double z){
     return .5 * log(r) * r/dr;
 }
 
+double smoothMin(double a, double b, double k){
+    double h = clamp((b - a + k) / (2 * k), 0, 1);
+    return a * h + b  * (1 - h) - k  * h  * (1 - h);
+    // double h = clamp(.5 + .5 *(b-a)/k, 0.0, 1.0);
+    // return mix(b, a, h) - k*h*(1.0-h);
+}
+
 double mix(double x, double y, double a){
     return x*(1-a) + y*a;
 }
@@ -659,39 +668,6 @@ double clamp(double x, double min, double max){
 }
 
 void keyCases(std::chrono::duration<double> elapsed_seconds){
-    if(changemx != 0){
-        Vector3 camera_right = cameraVector.cross(cameraUpVector);
-        Vector3 camera_direction = cameraVector*turnStep*.2;
-
-        double width = screenWidth;  // pixels across
-        double height = screenHeight;  // pixels high
-        double normalized_i = (mx / width) - .5;
-        double normalized_j = .5 - .5;
-
-        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-        rayVector.normalize();
-        cameraVector = rayVector;
-    }
-    if(changemy != 0){
-        Vector3 camera_right = cameraVector.cross(cameraUpVector);
-        Vector3 camera_direction = cameraVector*turnStep*.2;
-
-        double width = screenWidth;  // pixels across
-        double height = screenHeight;  // pixels high
-        double normalized_i = .5 - .5;
-        double normalized_j = 1-(my/height) - .5;
-
-        double imagepointx = (camera_right * normalized_i).i + (cameraUpVector * normalized_j).i + camera_direction.x + camera_direction.i;
-        double imagepointy = (camera_right * normalized_i).j + (cameraUpVector * normalized_j).j + camera_direction.y + camera_direction.j;
-        double imagepointz = (camera_right * normalized_i).k + (cameraUpVector * normalized_j).k + camera_direction.z + camera_direction.k;
-        Vector3 rayVector = Vector3(imagepointx - camera_direction.x, imagepointy - camera_direction.y, imagepointz - camera_direction.z, camera_direction.x, camera_direction.y, camera_direction.z);
-        rayVector.normalize();
-        cameraVector = rayVector;
-        cameraUpVector = camera_right.cross(cameraVector);
-    }
     if(l){
         Vector3 camera_right = cameraVector.cross(cameraUpVector);
         Vector3 camera_direction = cameraVector*turnStep;
@@ -799,7 +775,10 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
         if(m == 1){
             shapes[m]->centery += step*elapsed_seconds.count();
         }
-        else if(m == 2){
+        else if(m == 3){
+            shapes[m]->centery += step*elapsed_seconds.count();
+        }
+        else if(m == 4){
             pox = cameraVector.x;
             poy = cameraVector.y;
             poz = cameraVector.z;
@@ -812,7 +791,7 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
                 cameraVector.z = poz;
             }
         }
-        else if(m == 3){
+        else if(m == 5){
             pox = cameraVector.x;
             poy = cameraVector.y;
             poz = cameraVector.z;
@@ -834,6 +813,9 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
             shapes[m]->centery -= step*elapsed_seconds.count();
         }
         else if(m == 2){
+            shapes[m]->centery -= step*elapsed_seconds.count();
+        }
+        else if(m == 3){
             pox = cameraVector.x;
             poy = cameraVector.y;
             poz = cameraVector.z;
@@ -846,7 +828,7 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
                 cameraVector.z = poz;
             }
         }
-        else if(m == 3){
+        else if(m == 4){
             pox = cameraVector.x;
             poy = cameraVector.y;
             poz = cameraVector.z;
@@ -868,6 +850,9 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
             shapes[m]->centerx -= step*elapsed_seconds.count();
         }
         else if(m == 2){
+            shapes[m]->centerx -= step*elapsed_seconds.count();
+        }
+        else if(m == 3){
             Vector3 camera_right = cameraVector.cross(cameraUpVector);
             pox = cameraVector.x;
             poy = cameraVector.y;
@@ -881,7 +866,7 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
                 cameraVector.z = poz;
             }
         }
-        else if(m == 3){
+        else if(m == 4){
             Vector3 camera_right = cameraVector.cross(cameraUpVector);
             pox = cameraVector.x;
             poy = cameraVector.y;
@@ -904,6 +889,9 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
             shapes[m]->centerx += step*elapsed_seconds.count();
         }
         else if(m == 2){
+            shapes[m]->centerx += step*elapsed_seconds.count();
+        }
+        else if(m == 3){
             Vector3 camera_right = cameraVector.cross(cameraUpVector);
             pox = cameraVector.x;
             poy = cameraVector.y;
@@ -917,7 +905,7 @@ void keyCases(std::chrono::duration<double> elapsed_seconds){
                 cameraVector.z = poz;
             }
         }
-        else if(m == 3){
+        else if(m == 4){
             Vector3 camera_right = cameraVector.cross(cameraUpVector);
             pox = cameraVector.x;
             poy = cameraVector.y;
